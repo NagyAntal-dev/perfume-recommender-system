@@ -1,0 +1,110 @@
+version: "1"
+
+services:
+  # OLTP PostgreSQL database
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: oltp_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres_data/oltp:/var/lib/postgresql/data
+    networks:
+      - adat_net
+
+  # PostgreSQL data warehouse
+  dwh_postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: dwh_user
+      POSTGRES_PASSWORD: dwh_pass
+      POSTGRES_DB: dwh_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./postgres_data/dwh:/var/lib/postgresql/data
+    networks:
+      - adat_net
+
+  # PostgreSQL + vector (pgvector)
+  postgres-vector:
+    image: ankane/pgvector
+    environment:
+      POSTGRES_USER: vector_user
+      POSTGRES_PASSWORD: vector_pass
+      POSTGRES_DB: vector_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./postgres_data/vector:/var/lib/postgresql/data
+    networks:
+      - adat_net
+
+  # Redis for persistent rate limiting (and caching)
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis_data:/data
+    networks:
+      - adat_net
+
+  # Apache Airflow (standalone mode with LocalExecutor and custom admin user)
+  airflow:
+    image: apache/airflow
+    command: >
+      bash -c "airflow db upgrade &&
+      airflow users create --username myadmin --firstname FirstName --lastname LastName --role Admin --email myadmin@example.com --password mypassword || true &&
+      airflow standalone"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://user:pass@postgres:5432/oltp_db
+      FLASK_LIMITER_STORAGE_URL: redis://redis:6379/0
+      PYTHONWARNINGS: "ignore"
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+    networks:
+      - adat_net
+
+  # Apache Superset (with admin user auto-creation, binding to 0.0.0.0, and persistent rate limiting)
+  superset:
+    image: apache/superset
+    command: >
+      bash -c "superset db upgrade &&
+      superset fab create-admin --username myadmin --firstname Admin --lastname User --email admin@example.com --password myadmin || true &&
+      superset init &&
+      superset run -p 8088 --host 0.0.0.0 --with-threads --reload --debugger"
+    environment:
+      SUPERSET_ENV: production
+      SUPERSET_LOAD_EXAMPLES: "no"
+      SUPERSET_SECRET_KEY: "password"
+      FLASK_LIMITER_STORAGE_URL: redis://redis:6379/0
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./superset_data:/app/superset_home
+    networks:
+      - adat_net
+
+  # pgAdmin
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - ./pgadmin_data:/var/lib/pgadmin
+    networks:
+      - adat_net
+
+networks:
+  adat_net:
+    driver: bridge

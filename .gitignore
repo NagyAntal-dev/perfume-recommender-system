@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+airflow_logs/
+etl/
+metabase_data/
+pgadmin_data/
+postgres_data/
+dwh/
+oltp/
+oltp_data/
+vector/
+redis_data/
+superset_data/
+*.db
+.DS_Store
+Thumbs.db
+*.tmp
