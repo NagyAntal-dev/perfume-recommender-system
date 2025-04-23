@@ -1,36 +1,64 @@
-version: "1"
-
 services:
-  # OLTP PostgreSQL database
+  # Primary OLTP PostgreSQL
   postgres:
     image: postgres:16
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: pass
       POSTGRES_DB: oltp_db
+      PGDATA: /var/lib/postgresql/data
     ports:
       - "5432:5432"
     volumes:
       - ./db/init:/docker-entrypoint-initdb.d
+      - ./db/config/primary/postgresql.conf:/docker-entrypoint-initdb.d/postgresql.conf:ro
+      - ./db/config/primary/pg_hba.conf:/docker-entrypoint-initdb.d/pg_hba.conf:ro
       - ./postgres_data/oltp:/var/lib/postgresql/data
-    networks:
-      - adat_net
 
-  # PostgreSQL data warehouse
-  dwh_postgres:
+  # Streaming replica
+  postgres_replica:
     image: postgres:16
+    depends_on:
+      - postgres
     environment:
-      POSTGRES_USER: dwh_user
-      POSTGRES_PASSWORD: dwh_pass
-      POSTGRES_DB: dwh_db
+      POSTGRES_USER: replicator
+      POSTGRES_PASSWORD: replicator_pass
+      PGDATA: /var/lib/postgresql/data
+      POSTGRES_DB: oltp_db
     ports:
-      - "5433:5432"
+      - "5435:5432"
     volumes:
-      - ./postgres_data/dwh:/var/lib/postgresql/data
-    networks:
-      - adat_net
+      - ./db/replication:/docker-entrypoint-initdb.d
+      - ./db/config/replica/postgresql.conf:/docker-entrypoint-initdb.d/postgresql.conf:ro
+      - ./db/config/replica/pg_hba.conf:/docker-entrypoint-initdb.d/pg_hba.conf:ro
+      - ./postgres_data/replica:/var/lib/postgresql/data
+    command: >
+      sh -c '
+      cp /docker-entrypoint-initdb.d/postgresql.conf $PGDATA/postgresql.conf &&
+      cp /docker-entrypoint-initdb.d/pg_hba.conf     $PGDATA/pg_hba.conf &&
+      chmod 600 $PGDATA/postgresql.conf &&
+      chmod 600 $PGDATA/pg_hba.conf &&
+      exec docker-entrypoint.sh postgres
+      '
 
-  # PostgreSQL + vector (pgvector)
+  # Apache Doris (all‑in‑one FE+BE)
+  doris:
+    image: apache/doris:doris-all-in-one-2.1.0
+    container_name: doris
+    hostname: doris
+    # Expose both FE and BE ports for SQL, HTTP, and RPC access
+    ports:
+      - "8030:8030"    # FE HTTP UI (cluster status & web queries)
+      - "9030:9030"    # FE RPC (metadata & edit logs)
+      - "9037:9037"    # MySQL‑protocol query port
+      - "8040:8040"    # BE HTTP status & metrics
+      - "9060:9060"    # BE RPC (query execution)
+    volumes:
+      - ./doris/fe/meta:/opt/apache-doris/fe/doris-meta   # persistence for FE metadata
+      - ./doris/be/storage:/opt/apache-doris/be/storage   # persistence for BE data
+      - ./doris/logs:/opt/apache-doris/log                # shared logging directory
+
+  # pgvector
   postgres-vector:
     image: ankane/pgvector
     environment:
@@ -41,22 +69,18 @@ services:
       - "5434:5432"
     volumes:
       - ./postgres_data/vector:/var/lib/postgresql/data
-    networks:
-      - adat_net
 
-  # Redis for persistent rate limiting (and caching)
+  # Redis
   redis:
     image: redis:7
     ports:
       - "6379:6379"
     volumes:
       - ./redis_data:/data
-    networks:
-      - adat_net
 
-  # Apache Airflow (standalone mode with LocalExecutor and custom admin user)
+  # Apache Airflow (explicit tag)
   airflow:
-    image: apache/airflow
+    image: apache/airflow:2.10.5
     command: >
       bash -c "airflow db upgrade &&
       airflow users create --username myadmin --firstname FirstName --lastname LastName --role Admin --email myadmin@example.com --password mypassword || true &&
@@ -65,17 +89,14 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://user:pass@postgres:5432/oltp_db
       FLASK_LIMITER_STORAGE_URL: redis://redis:6379/0
-      PYTHONWARNINGS: "ignore"
     ports:
       - "8081:8080"
     volumes:
       - ./dags:/opt/airflow/dags
-    networks:
-      - adat_net
 
-  # Apache Superset (with admin user auto-creation, binding to 0.0.0.0, and persistent rate limiting)
+  # Apache Superset (use valid tag)
   superset:
-    image: apache/superset
+    image: apache/superset:latest
     command: >
       bash -c "superset db upgrade &&
       superset fab create-admin --username myadmin --firstname Admin --lastname User --email admin@example.com --password myadmin || true &&
@@ -90,12 +111,10 @@ services:
       - "8088:8088"
     volumes:
       - ./superset_data:/app/superset_home
-    networks:
-      - adat_net
 
-  # pgAdmin
+  # pgAdmin (pin to latest)
   pgadmin:
-    image: dpage/pgadmin4
+    image: dpage/pgadmin4:latest
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
@@ -103,8 +122,6 @@ services:
       - "5050:80"
     volumes:
       - ./pgadmin_data:/var/lib/pgadmin
-    networks:
-      - adat_net
 
 networks:
   adat_net:
