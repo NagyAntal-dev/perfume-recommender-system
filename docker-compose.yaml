@@ -10,10 +10,15 @@ services:
     ports:
       - "5432:5432"
     volumes:
+      # Mount init scripts (including the new 00_copy_config.sh)
       - ./db/init:/docker-entrypoint-initdb.d
-      - ./db/config/primary/postgresql.conf:/docker-entrypoint-initdb.d/postgresql.conf:ro
-      - ./db/config/primary/pg_hba.conf:/docker-entrypoint-initdb.d/pg_hba.conf:ro
+      # Mount custom configs to a temporary location (read-only is fine here)
+      - ./db/config/primary/postgresql.conf:/etc/postgresql/custom/postgresql.conf:ro
+      - ./db/config/primary/pg_hba.conf:/etc/postgresql/custom/pg_hba.conf:ro
+      # Mount the main data volume
       - ./postgres_data/oltp:/var/lib/postgresql/data
+    networks:
+      - adat_net
 
   # Streaming replica
   postgres_replica:
@@ -21,25 +26,26 @@ services:
     depends_on:
       - postgres
     environment:
-      POSTGRES_USER: replicator
+      POSTGRES_USER: replicator # Note: This user isn't the OS user, postgres is.
       POSTGRES_PASSWORD: replicator_pass
       PGDATA: /var/lib/postgresql/data
-      POSTGRES_DB: oltp_db
+      POSTGRES_DB: oltp_db # Not strictly needed for replica init, but doesn't hurt
     ports:
       - "5435:5432"
     volumes:
+      # Mount the directory containing 00_init_replica.sh
       - ./db/replication:/docker-entrypoint-initdb.d
-      - ./db/config/replica/postgresql.conf:/docker-entrypoint-initdb.d/postgresql.conf:ro
-      - ./db/config/replica/pg_hba.conf:/docker-entrypoint-initdb.d/pg_hba.conf:ro
+      # Mount the new entrypoint script
+      - ./db/replication/replica_entrypoint.sh:/usr/local/bin/replica_entrypoint.sh:ro
+      # Mount custom configs to a temporary location
+      - ./db/config/replica/postgresql.conf:/etc/postgresql/replica/postgresql.conf:ro
+      - ./db/config/replica/pg_hba.conf:/etc/postgresql/replica/pg_hba.conf:ro
+      # Mount the main data volume
       - ./postgres_data/replica:/var/lib/postgresql/data
-    command: >
-      sh -c '
-      cp /docker-entrypoint-initdb.d/postgresql.conf $PGDATA/postgresql.conf &&
-      cp /docker-entrypoint-initdb.d/pg_hba.conf     $PGDATA/pg_hba.conf &&
-      chmod 600 $PGDATA/postgresql.conf &&
-      chmod 600 $PGDATA/pg_hba.conf &&
-      exec docker-entrypoint.sh postgres
-      '
+    # Change the command to execute the new entrypoint script
+    command: /usr/local/bin/replica_entrypoint.sh
+    networks:
+      - adat_net
 
   # Apache Doris 
   doris:
@@ -56,7 +62,8 @@ services:
       - ./doris/fe/meta:/opt/apache-doris/fe/doris-meta   
       - ./doris/be/storage:/opt/apache-doris/be/storage   
       - ./doris/logs:/opt/apache-doris/log               
-
+    networks:
+      - adat_net
   # pgvector
   postgres-vector:
     image: ankane/pgvector
@@ -68,7 +75,8 @@ services:
       - "5434:5432"
     volumes:
       - ./postgres_data/vector:/var/lib/postgresql/data
-
+    networks:
+      - adat_net
   # Redis
   redis:
     image: redis:7
@@ -76,7 +84,8 @@ services:
       - "6379:6379"
     volumes:
       - ./redis_data:/data
-
+    networks:
+      - adat_net
   # Apache Airflow (explicit tag)
   airflow:
     image: apache/airflow:2.10.5
@@ -92,7 +101,8 @@ services:
       - "8081:8080"
     volumes:
       - ./dags:/opt/airflow/dags
-
+    networks:
+      - adat_net
   # Apache Superset (use valid tag)
   superset:
     image: apache/superset:latest
@@ -110,7 +120,8 @@ services:
       - "8088:8088"
     volumes:
       - ./superset_data:/app/superset_home
-
+    networks:
+      - adat_net
   # pgAdmin (pin to latest)
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -121,7 +132,8 @@ services:
       - "5050:80"
     volumes:
       - ./pgadmin_data:/var/lib/pgadmin
-
+    networks:
+      - adat_net
 networks:
   adat_net:
     driver: bridge

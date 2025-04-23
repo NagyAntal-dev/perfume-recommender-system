@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+set -x # Enable debug output
 
 # 00_init_replica.sh
 # Bootstraps the standby: waits for primary, then pg_basebackup + standby.signal
@@ -12,8 +13,8 @@ PGDATA="/var/lib/postgresql/data"
 
 export PGPASSWORD="$REPL_PASS"
 
-# 1) Wait until primary is accepting connections
-until pg_isready -h "$PRIMARY_HOST" -p "$PRIMARY_PORT" -U "$REPL_USER" -d oltp_db; do
+# 1) Wait until primary is accepting connections (removed -d oltp_db)
+until pg_isready -h "$PRIMARY_HOST" -p "$PRIMARY_PORT" -U "$REPL_USER"; do
   echo "Waiting for primary at $PRIMARY_HOST:$PRIMARY_PORT..."
   sleep 1
 done
@@ -24,7 +25,7 @@ if [ ! -s "$PGDATA/PG_VERSION" ]; then
   pg_basebackup \
     -h "$PRIMARY_HOST" \
     -p "$PRIMARY_PORT" \
-    -d oltp_db \
+    -d dbname=oltp_db \
     -D "$PGDATA" \
     -U "$REPL_USER" \
     -Fp -Xs -P --slot=replication_slot
@@ -34,6 +35,8 @@ fi
 touch "$PGDATA/standby.signal"
 
 # 4) Append primary_conninfo and replication slot to postgresql.auto.conf
+# Ensure the file exists before appending, especially if base backup was skipped
+touch "$PGDATA/postgresql.auto.conf"
 cat >> "$PGDATA/postgresql.auto.conf" <<EOF
 primary_conninfo = 'host=$PRIMARY_HOST port=$PRIMARY_PORT user=$REPL_USER password=$REPL_PASS'
 primary_slot_name = 'replication_slot'
