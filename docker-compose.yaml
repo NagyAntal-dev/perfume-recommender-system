@@ -41,22 +41,21 @@ services:
       exec docker-entrypoint.sh postgres
       '
 
-  # Apache Doris (all‑in‑one FE+BE)
+  # Apache Doris 
   doris:
     image: apache/doris:doris-all-in-one-2.1.0
     container_name: doris
     hostname: doris
-    # Expose both FE and BE ports for SQL, HTTP, and RPC access
     ports:
-      - "8030:8030"    # FE HTTP UI (cluster status & web queries)
-      - "9030:9030"    # FE RPC (metadata & edit logs)
-      - "9037:9037"    # MySQL‑protocol query port
-      - "8040:8040"    # BE HTTP status & metrics
-      - "9060:9060"    # BE RPC (query execution)
+      - "8030:8030"    
+      - "9030:9030"    
+      - "9037:9037"  
+      - "8040:8040"   
+      - "9060:9060"   
     volumes:
-      - ./doris/fe/meta:/opt/apache-doris/fe/doris-meta   # persistence for FE metadata
-      - ./doris/be/storage:/opt/apache-doris/be/storage   # persistence for BE data
-      - ./doris/logs:/opt/apache-doris/log                # shared logging directory
+      - ./doris/fe/meta:/opt/apache-doris/fe/doris-meta   
+      - ./doris/be/storage:/opt/apache-doris/be/storage   
+      - ./doris/logs:/opt/apache-doris/log               
 
   # pgvector
   postgres-vector:
