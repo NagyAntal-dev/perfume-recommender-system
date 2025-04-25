@@ -1,3 +1,4 @@
+
 services:
   # Primary OLTP PostgreSQL
   postgres:
@@ -47,81 +48,6 @@ services:
     networks:
       - adat_net
 
-  # Apache Doris 
-  doris:
-    image: apache/doris:doris-all-in-one-2.1.0
-    container_name: doris
-    hostname: doris
-    ports:
-      - "8030:8030"    
-      - "9030:9030"    
-      - "9037:9037"  
-      - "8040:8040"   
-      - "9060:9060"   
-    volumes:
-      - ./doris/fe/meta:/opt/apache-doris/fe/doris-meta   
-      - ./doris/be/storage:/opt/apache-doris/be/storage   
-      - ./doris/logs:/opt/apache-doris/log               
-    networks:
-      - adat_net
-  # pgvector
-  postgres-vector:
-    image: ankane/pgvector
-    environment:
-      POSTGRES_USER: vector_user
-      POSTGRES_PASSWORD: vector_pass
-      POSTGRES_DB: vector_db
-    ports:
-      - "5434:5432"
-    volumes:
-      - ./postgres_data/vector:/var/lib/postgresql/data
-    networks:
-      - adat_net
-  # Redis
-  redis:
-    image: redis:7
-    ports:
-      - "6379:6379"
-    volumes:
-      - ./redis_data:/data
-    networks:
-      - adat_net
-  # Apache Airflow (explicit tag)
-  airflow:
-    image: apache/airflow:2.10.5
-    command: >
-      bash -c "airflow db upgrade &&
-      airflow users create --username myadmin --firstname FirstName --lastname LastName --role Admin --email myadmin@example.com --password mypassword || true &&
-      airflow standalone"
-    environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://user:pass@postgres:5432/oltp_db
-      FLASK_LIMITER_STORAGE_URL: redis://redis:6379/0
-    ports:
-      - "8081:8080"
-    volumes:
-      - ./dags:/opt/airflow/dags
-    networks:
-      - adat_net
-  # Apache Superset (use valid tag)
-  superset:
-    image: apache/superset:latest
-    command: >
-      bash -c "superset db upgrade &&
-      superset fab create-admin --username myadmin --firstname Admin --lastname User --email admin@example.com --password myadmin || true &&
-      superset init &&
-      superset run -p 8088 --host 0.0.0.0 --with-threads --reload --debugger"
-    environment:
-      SUPERSET_ENV: production
-      SUPERSET_LOAD_EXAMPLES: "no"
-      SUPERSET_SECRET_KEY: "password"
-      FLASK_LIMITER_STORAGE_URL: redis://redis:6379/0
-    ports:
-      - "8088:8088"
-    volumes:
-      - ./superset_data:/app/superset_home
-    networks:
-      - adat_net
   # pgAdmin (pin to latest)
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -134,6 +60,86 @@ services:
       - ./pgadmin_data:/var/lib/pgadmin
     networks:
       - adat_net
+
+  # Commented out services:
+  # doris:
+  #   image: apache/doris:doris-all-in-one-2.1.0
+  #   container_name: doris
+  #   hostname: doris
+  #   ports:
+  #     - "8030:8030"
+  #     - "9030:9030"
+  #     - "9037:9037"
+  #     - "8040:8040"
+  #     - "9060:9060"
+  #   volumes:
+  #     - ./doris/fe/meta:/opt/apache-doris/fe/doris-meta
+  #     - ./doris/be/storage:/opt/apache-doris/be/storage
+  #     - ./doris/logs:/opt/apache-doris/log
+  #   networks:
+  #     - adat_net
+
+  # pgvector:
+  # postgres-vector:
+  #   image: ankane/pgvector
+  #   environment:
+  #     POSTGRES_USER: vector_user
+  #     POSTGRES_PASSWORD: vector_pass
+  #     POSTGRES_DB: vector_db
+  #   ports:
+  #     - "5434:5432"
+  #   volumes:
+  #     - ./postgres_data/vector:/var/lib/postgresql/data
+  #   networks:
+  #     - adat_net
+
+  # redis:
+  #   image: redis:7
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - ./redis_data:/data
+  #   networks:
+  #     - adat_net
+
+  # Apache Airflow (explicit tag)
+  # airflow:
+  #   image: apache/airflow:2.10.5
+  #   command: >
+  #     bash -c "airflow db upgrade &&
+  #     airflow users create --username myadmin --firstname FirstName --lastname LastName --role Admin --email myadmin@example.com --password mypassword || true &&
+  #     airflow standalone"
+  #   environment:
+  #     AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  #     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://user:pass@postgres:5432/oltp_db
+  #     FLASK_LIMITER_STORAGE_URL: redis://redis:6379/0
+  #   ports:
+  #     - "8081:8080"
+  #   volumes:
+  #     - ./dags:/opt/airflow/dags
+  #   networks:
+  #     - adat_net
+
+  # Apache Superset (use valid tag)
+  # superset:
+  #   image: apache/superset:latest
+  #   command: >
+  #     bash -c "superset db upgrade &&
+  #     superset fab create-admin --username myadmin --firstname Admin --lastname User --email admin@example.com --password myadmin || true &&
+  #     superset init &&
+  #     superset run -p 8088 --host 0.0.0.0 --with-threads --reload --debugger"
+  #   environment:
+  #     SUPERSET_ENV: production
+  #     SUPERSET_LOAD_EXAMPLES: "no"
+  #     SUPERSET_SECRET_KEY: "password"
+  #     FLASK_LIMITER_STORAGE_URL: redis://redis:6379/0
+  #   ports:
+  #     - "8088:8088"
+  #   volumes:
+  #     - ./superset_data:/app/superset_home
+  #   networks:
+  #     - adat_net
+
 networks:
   adat_net:
     driver: bridge

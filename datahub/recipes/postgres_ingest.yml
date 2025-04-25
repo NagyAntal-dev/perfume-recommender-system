@@ -1,0 +1,18 @@
+source:
+  type: postgres
+  config:
+    host_port: "postgres:5432"        # points at your primary PG service
+    database: "oltp_db"
+    username: "user"
+    password: "pass"
+    profiling:
+      enabled: true                   # turn on table/column stats
+transformers:                           # optional metadata transformers
+  - type: simple_add_dataset_ownership
+    config:
+      owner_urns:
+        - "urn:li:corpuser:Database Administrators"
+sink:
+  type: datahub          # send metadata into DataHub
+  config:
+    server: "datahub-gms:8080"
