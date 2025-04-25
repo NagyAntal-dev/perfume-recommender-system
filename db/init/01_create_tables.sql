@@ -49,10 +49,9 @@ CREATE TABLE products (
   middle_note        VARCHAR(4000),
   base_note          VARCHAR(4000),
   price         DECIMAL(10,2),
-  country_id    INTEGER NOT NULL
-                REFERENCES countries(country_id),
   brand_id      INTEGER NOT NULL
-                REFERENCES brands(brand_id)
+                REFERENCES brands(brand_id),
+  quantity    INTEGER
 );
 
 -- 5) carts
