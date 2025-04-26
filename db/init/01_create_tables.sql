@@ -66,9 +66,9 @@ CREATE TABLE carts (
 CREATE TABLE cart_content (
   cart_content_id  SERIAL PRIMARY KEY,
   cart_id          INTEGER NOT NULL
-                   REFERENCES carts(cart_id),
+                   REFERENCES carts(cart_id) ON DELETE CASCADE,
   product_id       INTEGER NOT NULL
-                   REFERENCES products(product_id),
+                   REFERENCES products(product_id) ON DELETE CASCADE,
   quantity         INTEGER
 );
 
