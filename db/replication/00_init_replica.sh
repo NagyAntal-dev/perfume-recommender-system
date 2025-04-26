@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -e
-set -x # Enable debug output
+set -x
 
 # 00_init_replica.sh
 # Bootstraps the standby: waits for primary, then pg_basebackup + standby.signal
-
 PRIMARY_HOST="postgres"
 PRIMARY_PORT=5432
 REPL_USER="replicator"
@@ -35,7 +34,6 @@ fi
 touch "$PGDATA/standby.signal"
 
 # 4) Append primary_conninfo and replication slot to postgresql.auto.conf
-# Ensure the file exists before appending, especially if base backup was skipped
 touch "$PGDATA/postgresql.auto.conf"
 cat >> "$PGDATA/postgresql.auto.conf" <<EOF
 primary_conninfo = 'host=$PRIMARY_HOST port=$PRIMARY_PORT user=$REPL_USER password=$REPL_PASS'

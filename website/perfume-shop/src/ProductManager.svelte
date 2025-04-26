@@ -1,19 +1,19 @@
 <script>
-  import { createEventDispatcher, onMount } from 'svelte'; // Import onMount
+  import { createEventDispatcher, onMount } from 'svelte';
   import apiClient from './lib/apiClient';
 
-  // initialProducts prop is still useful for potentially faster initial display
-  // but the component will fetch its own full list.
+
+
   export let initialProducts = [];
   export let brands = [];
 
-  let products = []; // Initialize as empty, will be filled by fetch
-  let isLoading = true; // Start in loading state
+  let products = [];
+  let isLoading = true;
   let error = '';
   let showAddForm = false;
   let searchTerm = '';
 
-  // Form state for adding a new product
+
   let newProduct = {
     produrl: '', perfume: '', gender: 'unisex', rating_value: null, rating_count: null,
     create_year: null, top_note: '', middle_note: '', base_note: '', price: null,
@@ -22,26 +22,26 @@
 
   const dispatch = createEventDispatcher();
 
-  // --- Function to fetch all products within this component ---
+
   async function loadAllProducts() {
     isLoading = true;
     error = '';
     console.log("ProductManager: Fetching all products...");
     try {
-      // Use a large limit to fetch effectively all products
+
       const allProducts = await apiClient.getProducts(0, 2000);
-      products = allProducts || []; // Update the local products array
+      products = allProducts || [];
       console.log(`ProductManager: Fetched ${products.length} products.`);
     } catch (err) {
       console.error('ProductManager: Error loading products:', err);
       error = `Failed to load products: ${err.message}`;
-      products = []; // Clear products on error
+      products = [];
     } finally {
       isLoading = false;
     }
   }
 
-  // --- Fetch products when the component mounts ---
+
   onMount(() => {
     loadAllProducts();
   });
@@ -54,15 +54,15 @@
     if (!confirm('Are you sure you want to delete this product?')) {
       return;
     }
-    // Indicate loading specific to this action if desired
-    isLoading = true; // Or use a different loading flag for row-specific actions
+
+    isLoading = true;
     error = '';
     try {
       await apiClient.deleteProduct(productId);
-      // Update local state directly
+
       products = products.filter(p => p.product_id !== productId);
-      // No need to dispatch 'updated' if AdminDashboard doesn't need to refetch everything now
-      // dispatch('updated'); // Keep if AdminDashboard needs to refresh stats or other data
+
+
     } catch (err) {
       console.error('Error deleting product:', err);
       error = `Failed to delete product: ${err.message}`;
@@ -72,7 +72,7 @@
   }
 
   async function handleAddProduct() {
-    isLoading = true; // Loading for the form submission
+    isLoading = true;
     error = '';
     try {
         if (!newProduct.perfume || !newProduct.brand_id || newProduct.price == null || !newProduct.produrl) {
@@ -86,17 +86,17 @@
             rating_value: newProduct.rating_value ?? null,
             rating_count: newProduct.rating_count ?? null,
             create_year: newProduct.create_year ?? null,
-            price: newProduct.price ?? null, // Already handled by required check
+            price: newProduct.price ?? null,
             quantity: newProduct.quantity ?? 0,
-            brand_id: newProduct.brand_id ?? null // Already handled by required check
+            brand_id: newProduct.brand_id ?? null
         };
         const addedProduct = await apiClient.createProduct(payload);
-        // Update local state directly
+
         products = [...products, addedProduct];
         showAddForm = false;
         resetNewProductForm();
-        // No need to dispatch 'updated' if AdminDashboard doesn't need to refetch everything now
-        // dispatch('updated'); // Keep if AdminDashboard needs to refresh stats or other data
+
+
     } catch (err) {
         console.error('Error adding product:', err);
         error = `Failed to add product: ${err.message}`;
@@ -109,17 +109,17 @@
      newProduct = {
         produrl: '', perfume: '', gender: 'unisex', rating_value: null, rating_count: null,
         create_year: null, top_note: '', middle_note: '', base_note: '', price: null,
-        brand_id: brands.length > 0 ? brands[0].brand_id : null, // Default to first brand
+        brand_id: brands.length > 0 ? brands[0].brand_id : null,
         quantity: 0
      };
   }
 
-  // Initialize form default brand_id when brands are available
+
   $: if (brands.length > 0 && newProduct.brand_id === null) {
       newProduct.brand_id = brands[0].brand_id;
   }
 
-  // Reactive statement to filter products based on searchTerm
+
   $: filteredProducts = products.filter(product => {
     const term = searchTerm.toLowerCase();
     const productName = (product.perfume || '').toLowerCase();

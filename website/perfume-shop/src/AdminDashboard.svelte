@@ -8,74 +8,74 @@
   let carts = [];
   let countries = [];
   let brands = [];
-  let stats = null; // State for statistics
+  let stats = null;
   let isLoading = true;
-  let isLoadingStats = true; // Separate loading state for stats
+  let isLoadingStats = true;
   let errorMessage = '';
   let showProductManager = false;
 
   async function fetchData(forceRefresh = false) {
     if (!products.length || forceRefresh) {
-        isLoading = true; // Loading for main data lists
+        isLoading = true;
     }
-    isLoadingStats = true; // Always set stats loading true on fetch
+    isLoadingStats = true;
     errorMessage = '';
     try {
-      // Fetch lists and stats in parallel
+
       const [usersData, productsData, cartsData, countriesData, brandsData, statsData] = await Promise.all([
         apiClient.getUsers(0, 10),
-        apiClient.getProducts(0, 10), // Keep dashboard preview short
+        apiClient.getProducts(0, 10),
         apiClient.getCarts(0, 10),
-        apiClient.getCountries(0, 10), // Keep dashboard preview short
-        apiClient.getBrands(0, 10), // Keep dashboard preview short
-        apiClient.getStatsCounts() // Fetch stats
+        apiClient.getCountries(0, 10),
+        apiClient.getBrands(0, 10),
+        apiClient.getStatsCounts()
       ]);
       users = usersData || [];
       products = productsData || [];
       carts = cartsData || [];
       countries = countriesData || [];
       brands = brandsData || [];
-      stats = statsData; // Store stats
+      stats = statsData;
       console.log('Fetched Admin Data:', { users, products, carts, countries, brands, stats });
     } catch (error) {
       console.error('Error fetching admin data:', error);
       errorMessage = `Failed to fetch data: ${error.message}. Is the backend API running at ${apiClient.baseUrl}?`;
-      stats = null; // Clear stats on error
+      stats = null;
     } finally {
       isLoading = false;
-      isLoadingStats = false; // Stats loading finished
+      isLoadingStats = false;
     }
   }
 
   function toggleProductManager() {
     showProductManager = !showProductManager;
     if (showProductManager && products.length < (stats?.products || 1000)) {
-         // Optionally fetch all products if manager is opened and we only have a few
+
          fetchAllProductsForManager();
     }
   }
 
-  // Optional: Function to fetch all products specifically for the manager view
+
   async function fetchAllProductsForManager() {
       console.log("Fetching all products for manager...");
-      // Consider adding a loading indicator specific to this action
+
       try {
-          const allProducts = await apiClient.getProducts(0, 5000); // Fetch a large number
+          const allProducts = await apiClient.getProducts(0, 5000);
           products = allProducts || [];
       } catch(err) {
           console.error("Failed to fetch all products for manager", err);
-          // Show error specific to this action?
+
       }
   }
 
 
-  // Callback for when product manager signals data change
+
   function handleProductsUpdated() {
-    fetchData(true); // Refresh all data, including products and stats
+    fetchData(true);
   }
 
 
-  onMount(() => fetchData(true)); // Fetch data when the component mounts
+  onMount(() => fetchData(true));
 
 </script>
 

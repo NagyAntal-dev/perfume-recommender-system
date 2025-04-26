@@ -1,6 +1,6 @@
 <script>
-  // import TestDbComponent from './lib/TestDbComponent.svelte'; // Remove or comment out old component
-  import AdminDashboard from './AdminDashboard.svelte'; // Import the new dashboard
+
+  import AdminDashboard from './AdminDashboard.svelte';
 </script>
 
 <main>
